@@ -7,7 +7,7 @@ pipeline {
     
     environment {
         AWS_ID = credentials("aws.id")
-        DEPLOYMENT_REGION = credentials("deployment.region")
+        AWS_DEFAULT_REGION = credentials("deployment.region")
         MICROSERVICE_NAME = "transaction-microservice-js"
     }
 
@@ -20,6 +20,10 @@ pipeline {
                     echo "PATH = ${PATH}"
                     echo "M2_HOME = ${M2_HOME}"
                 ''' 
+            }
+
+            configFileProvider([configFile(fileId: "backend.env", targetLocation: 'env.groovy', variable: 'ENV_CONFIG')]) {
+                load "env.groovy"
             }
         }
         
@@ -49,17 +53,19 @@ pipeline {
         stage('Push') {
             steps {
                 script {
-                    docker.withRegistry("https://${AWS_ID}.dkr.ecr.${DEPLOYMENT_REGION}.amazonaws.com", "ecr:${DEPLOYMENT_REGION}:jenkins.aws.credentials.js") {
+                    docker.withRegistry("https://${AWS_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com", "ecr:${AWS_DEFAULT_REGION}:jenkins.aws.credentials.js") {
                         def image = docker.build("${MICROSERVICE_NAME}")
                         image.push('latest')
                     } 
                 }  
             }
         }
+
+
         stage('Cleanup') {
             steps {
                 sh "docker image rm ${MICROSERVICE_NAME}:latest"
-                sh 'docker image rm $AWS_ID.dkr.ecr.$DEPLOYMENT_REGION.amazonaws.com/$MICROSERVICE_NAME'
+                sh 'docker image rm $AWS_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$MICROSERVICE_NAME'
                 sh "docker image ls"
                 sh "mvn clean"
             }
