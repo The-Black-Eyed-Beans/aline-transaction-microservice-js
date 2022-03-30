@@ -31,7 +31,7 @@ pipeline {
             steps {
                 sh "git submodule init"
                 sh "git submodule update"
-                sh "mvn clean test -Dmaven.clean.failOnError=false"
+                sh "mvn clean test -Dmaven.test.failure.ignore=true"
             }
         }
         stage('Sonar Scan'){
