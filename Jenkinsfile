@@ -20,18 +20,18 @@ pipeline {
                     echo "PATH = ${PATH}"
                     echo "M2_HOME = ${M2_HOME}"
                 ''' 
-            }
 
-            configFileProvider([configFile(fileId: "backend.env", targetLocation: 'env.groovy', variable: 'ENV_CONFIG')]) {
-                load "env.groovy"
+                configFileProvider([configFile(fileId: "backend.env", targetLocation: 'env.groovy', variable: 'ENV_CONFIG')]) {
+                    load "env.groovy"
+                }
             }
         }
         
-        stage('Build') {
+        stage('Tests') {
             steps {
                 sh "git submodule init"
                 sh "git submodule update"
-                sh "mvn clean package -Dmaven.test.skip=true"
+                sh "mvn clean test -Dmaven.clean.failOnError=false"
             }
         }
         stage('Sonar Scan'){
@@ -47,6 +47,12 @@ pipeline {
                 timeout(time: 1, unit: 'HOURS') {
                     waitForQualityGate abortPipeline: true
                 }
+            }
+        }
+
+        stage('Build'){
+            steps {
+                sh "mvn clean package -Dmaven.test.skip=true"
             }
         }
         
