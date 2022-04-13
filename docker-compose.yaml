@@ -13,6 +13,6 @@ services:
 
 x-aws-cloudformation:
   Resources:
-    BankService:
+    TransactionService:
       Properties:
         ServiceName: transaction-service-js
