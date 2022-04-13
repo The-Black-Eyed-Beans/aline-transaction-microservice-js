@@ -1,0 +1,12 @@
+x-aws-cluster: "ECScluster-js"
+
+version: "3.9"
+services:
+  bank:
+    image: 086620157175.dkr.ecr.us-west-1.amazonaws.com/transaction-microservice-js
+    ports:
+      - "8073:8073"
+    env_file:
+      - ./backend.env
+    environment:
+      - APP_PORT=8073
