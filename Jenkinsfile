@@ -9,6 +9,7 @@ pipeline {
         AWS_ID = credentials("aws.id")
         AWS_DEFAULT_REGION = credentials("deployment.region")
         MICROSERVICE_NAME = "transaction-microservice-js"
+        ECS_SERVICE_NAME = "transaction-service-js"
     }
 
     stages {
@@ -37,7 +38,7 @@ pipeline {
         stage('Sonar Scan'){
             steps{
                 withSonarQubeEnv('SonarQube-Server'){
-                    sh 'mvn verify sonar:sonar -Dmaven.test.failure.ignore=true'
+                    sh 'mvn verify sonar:sonar'
                 }
             }
         }
@@ -67,6 +68,21 @@ pipeline {
                     sh "docker context use js-ecs"
                     sh "aws ecr get-login-password | docker login --username AWS --password-stdin 086620157175.dkr.ecr.us-west-1.amazonaws.com"
                     sh "docker compose up -d"
+                }
+            }
+        }
+
+        stage ('Update Cluster'){
+            steps {
+                script{
+                    try{
+                        withAWS(credentials: 'js-aws-credentials', region: 'us-west-1') { 
+                            sh "aws ecs update-service --cluster ECScluster-js --service ${ECS_SERVICE_NAME} --force-new-deployment" 
+                            sh "echo 'Updating existing service'"
+                        }
+                    }catch(exc){
+                        sh "echo 'Did not find existing service to update, a new one will be created'"
+                    }
                 }
             }
         }

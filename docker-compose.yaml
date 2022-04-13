@@ -10,3 +10,9 @@ services:
       - ./backend.env
     environment:
       - APP_PORT=8073
+
+x-aws-cloudformation:
+  Resources:
+    BankService:
+      Properties:
+        ServiceName: transaction-service-js
