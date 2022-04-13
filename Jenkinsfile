@@ -38,7 +38,7 @@ pipeline {
         stage('Sonar Scan'){
             steps{
                 withSonarQubeEnv('SonarQube-Server'){
-                    sh 'mvn verify sonar:sonar'
+                    sh 'mvn verify sonar:sonar -Dmaven.test.failure.ignore=true'
                 }
             }
         }
