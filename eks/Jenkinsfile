@@ -64,7 +64,9 @@ pipeline {
         stage('Deploy'){
             steps {
                 sh "aws eks update-kubeconfig --profile jsherer --name=EKSCluster-js --region=us-west-1"
-                sh "kubectl apply -f ${DEPLOYMENT_NAME}.yaml"
+                dir("eks"){
+                    sh "kubectl apply -f ${DEPLOYMENT_NAME}.yaml"
+                }
             }
         }
 
