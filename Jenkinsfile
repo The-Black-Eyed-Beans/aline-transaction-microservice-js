@@ -7,19 +7,23 @@ pipeline {
     
     environment {
         AWS_ID = credentials("aws.id")
-        DEPLOYMENT_REGION = credentials("deployment.region")
+        AWS_DEFAULT_REGION = credentials("deployment.region")
         MICROSERVICE_NAME = "transaction-microservice-js"
+        DEPLOYMENT_NAME = "transaction-deployment"
     }
 
     stages {
         stage ('Initialize') {
             steps {
+
                 // Verify path variables for mvn
                 sh '''
                     echo "Preparing to build, test and deploy ${MICROSERVICE_NAME}"
                     echo "PATH = ${PATH}"
                     echo "M2_HOME = ${M2_HOME}"
                 ''' 
+                sh "aws s3 cp s3://js-env-vars/backend.env ."
+                sh "ls -a"
             }
         }
         
@@ -27,13 +31,13 @@ pipeline {
             steps {
                 sh "git submodule init"
                 sh "git submodule update"
-                sh "mvn clean package -Dmaven.test.skip=true"
+                sh "mvn install -Dmaven.test.skip=true"
             }
         }
         stage('Sonar Scan'){
             steps{
                 withSonarQubeEnv('SonarQube-Server'){
-                    sh 'mvn verify sonar:sonar'
+                    sh 'mvn verify sonar:sonar -Dmaven.test.skip=true'
                 }
             }
         }
@@ -49,18 +53,42 @@ pipeline {
         stage('Push') {
             steps {
                 script {
-                    docker.withRegistry("https://${AWS_ID}.dkr.ecr.${DEPLOYMENT_REGION}.amazonaws.com", "ecr:${DEPLOYMENT_REGION}:jenkins.aws.credentials.js") {
+                    docker.withRegistry("https://${AWS_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com", "ecr:${AWS_DEFAULT_REGION}:jenkins.aws.credentials.js") {
                         def image = docker.build("${MICROSERVICE_NAME}")
                         image.push('latest')
                     } 
                 }  
             }
         }
+
+        stage('Deploy'){
+            steps {
+                sh "aws eks update-kubeconfig --profile jsherer --name=EKSCluster-js --region=us-west-1"
+                sh "kubectl apply -f ${DEPLOYMENT_NAME}.yaml"
+            }
+        }
+
+        stage ('Update Deployment'){
+            steps {
+                script{
+                    try{
+                        withAWS(credentials: 'js-aws-credentials', region: 'us-west-1') { 
+                            sh "kubectl scale deploy ${DEPLOYMENT_NAME} --replicas=0"
+                            sh "kubectl scale deploy ${DEPLOYMENT_NAME} --replicas=1"
+                            sh "echo 'Restarted ${DEPLOYMENT_NAME}.'"
+                        }
+                    }catch(exc){
+                        sh "echo 'No existing ${DEPLOYMENT_NAME} was detected, new ${DEPLOYMENT_NAME} was created.'"
+                    }
+                }
+            }
+        }
+
         stage('Cleanup') {
             steps {
                 sh "docker image rm ${MICROSERVICE_NAME}:latest"
-                sh 'docker image rm $AWS_ID.dkr.ecr.$DEPLOYMENT_REGION.amazonaws.com/$MICROSERVICE_NAME'
-                sh "docker image ls"
+                sh 'docker image rm $AWS_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$MICROSERVICE_NAME'
+                sh "docker image prune -f"
                 sh "mvn clean"
             }
         }
