@@ -58,3 +58,5 @@ spec:
         ports:
         - name: transaction
           containerPort: 8070
+      nodeSelector:
+        backend: "true"
